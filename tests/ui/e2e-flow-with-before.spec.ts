@@ -17,15 +17,21 @@ test('signIn button disabled when incorrect data inserted', async ({}) => {
 })
 
 test('error message displayed when incorrect credentials used', async ({}) => {
-  // implement test
+  await loginPage.usernameField.fill(faker.internet.username())
+  await loginPage.passwordField.fill(faker.internet.password())
+  await loginPage.signInButton.click()
+
+  await loginPage.errorPopup.checkVisibility(true)
+  await loginPage.errorPopup.checkText('Incorrect credentials')
 })
 
 test('login with correct credentials and verify order creation page', async ({}) => {
   const orderCreationPage = await loginPage.signIn(USERNAME, PASSWORD)
   await orderCreationPage.statusButton.checkVisibility(true)
-  // verify at least few elements on the order creation page
+  await orderCreationPage.checkInnerComponents()
 })
 
 test('login and create order', async ({}) => {
-  // implement test
+  const orderCreationPage = await loginPage.signIn(USERNAME, PASSWORD)
+  await orderCreationPage.createOrder()
 })
