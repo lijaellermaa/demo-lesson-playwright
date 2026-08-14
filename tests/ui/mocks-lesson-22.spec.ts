@@ -4,10 +4,14 @@ import { PASSWORD, USERNAME } from '../../config/env-data'
 import { ENDPOINTS } from '../../utils/endpoints'
 import { fakeJwt } from '../../utils/jwt'
 import { TEST_DATA } from '../../utils/test-data'
+import { OrderPage } from '../pages/order-page'
 
 test.describe('Mocked order flows', async () => {
+  let orderPage: OrderPage
 
   test.beforeEach(async ({ page }) => {
+    test.slow()
+
     await page.route(`**${ENDPOINTS.STUDENTS}`, async (route) => {
       if (route.request().method() === 'POST') {
         await route.fulfill({
@@ -19,13 +23,13 @@ test.describe('Mocked order flows', async () => {
         await route.continue()
       }
     })
+
+    const loginPage = new LoginPage(page)
+    await loginPage.open()
+    orderPage = await loginPage.signIn(USERNAME, PASSWORD)
   })
 
   test('Mocked order creation', async ({ page }) => {
-    const loginPage = new LoginPage(page)
-    await loginPage.open()
-    const orderPage = await loginPage.signIn(USERNAME, PASSWORD)
-
     await page.route(`**${ENDPOINTS.ORDERS}`, async (route) => {
       if (route.request().method() === 'POST') {
         await route.fulfill({
@@ -42,10 +46,6 @@ test.describe('Mocked order flows', async () => {
   })
 
   test('Mocked order search - found (OPEN)', async ({ page }) => {
-    const loginPage = new LoginPage(page)
-    await loginPage.open()
-    const orderPage = await loginPage.signIn(USERNAME, PASSWORD)
-
     await page.route(`**${ENDPOINTS.ORDER_BY_ID}`, async (route) => {
       if (route.request().method() === 'GET') {
         await route.fulfill({
@@ -63,10 +63,6 @@ test.describe('Mocked order flows', async () => {
   })
 
   test('Mocked order search - found (DELIVERED)', async ({ page }) => {
-    const loginPage = new LoginPage(page)
-    await loginPage.open()
-    const orderPage = await loginPage.signIn(USERNAME, PASSWORD)
-
     await page.route(`**${ENDPOINTS.ORDER_BY_ID}`, async (route) => {
       if (route.request().method() === 'GET') {
         await route.fulfill({
@@ -86,10 +82,6 @@ test.describe('Mocked order flows', async () => {
   })
 
   test('Mocked order search - not found (404)', async ({ page }) => {
-    const loginPage = new LoginPage(page)
-    await loginPage.open()
-    const orderPage = await loginPage.signIn(USERNAME, PASSWORD)
-
     await page.route(`**${ENDPOINTS.ORDER_BY_ID}`, async (route) => {
       if (route.request().method() === 'GET') {
         await route.fulfill({
@@ -107,10 +99,6 @@ test.describe('Mocked order flows', async () => {
   })
 
   test('Mocked server error (500)', async ({ page }) => {
-    const loginPage = new LoginPage(page)
-    await loginPage.open()
-    const orderPage = await loginPage.signIn(USERNAME, PASSWORD)
-
     await page.route(`**${ENDPOINTS.ORDER_BY_ID}`, async (route) => {
       if (route.request().method() === 'GET') {
         await route.fulfill({
@@ -126,5 +114,4 @@ test.describe('Mocked order flows', async () => {
     const orderNotFoundPage = await orderPage.checkOrderNotFound()
     await orderNotFoundPage.checkVisibility(true)
   })
-
 })
