@@ -4,86 +4,111 @@ import { PASSWORD, USERNAME } from '../../config/env-data'
 import { ENDPOINTS } from '../../utils/endpoints'
 import { fakeJwt } from '../../utils/jwt'
 import { TEST_DATA } from '../../utils/test-data'
+import { OrderPage } from '../pages/order-page'
 
 test.describe('Mocked order flows', async () => {
-  test('Mocked order creation', async ({ page }) => {
-    const loginPage = new LoginPage(page)
-    await loginPage.open()
+  let orderPage: OrderPage
+
+  test.beforeEach(async ({ page }) => {
+    test.slow()
 
     await page.route(`**${ENDPOINTS.STUDENTS}`, async (route) => {
-      await route.fulfill({ body: fakeJwt() })
+      if (route.request().method() === 'POST') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: fakeJwt(),
+        })
+      } else {
+        await route.continue()
+      }
     })
 
-    const orderPage = await loginPage.signIn(USERNAME, PASSWORD)
+    const loginPage = new LoginPage(page)
+    await loginPage.open()
+    orderPage = await loginPage.signIn(USERNAME, PASSWORD)
+  })
 
+  test('Mocked order creation', async ({ page }) => {
     await page.route(`**${ENDPOINTS.ORDERS}`, async (route) => {
-      await route.fulfill({
-        status: 200,
-        json: TEST_DATA.CREATE_ORDER_RESPONSE,
-        contentType: 'application/json',
-      })
+      if (route.request().method() === 'POST') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(TEST_DATA.CREATE_ORDER_RESPONSE),
+        })
+      } else {
+        await route.continue()
+      }
     })
 
     await orderPage.createOrder()
   })
 
-  test('Mocked order search - found', async ({ page }) => {
-    const loginPage = new LoginPage(page)
-    await loginPage.open()
-
-    await page.route(`**${ENDPOINTS.STUDENTS}`, async (route) => {
-      await route.fulfill({ body: fakeJwt() })
-    })
-
-    const orderPage = await loginPage.signIn(USERNAME, PASSWORD)
-
-    await page.route(`**${ENDPOINTS.ORDERS}/*`, async (route) => {
-      await route.fulfill({
-        status: 200,
-        json: TEST_DATA.CREATE_ORDER_RESPONSE,
-        contentType: 'application/json',
-      })
+  test('Mocked order search - found (OPEN)', async ({ page }) => {
+    await page.route(`**${ENDPOINTS.ORDER_BY_ID}`, async (route) => {
+      if (route.request().method() === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(TEST_DATA.CREATE_ORDER_RESPONSE),
+        })
+      } else {
+        await route.continue()
+      }
     })
 
     const orderDetailsPage = await orderPage.checkOrderFound(TEST_DATA.CREATE_ORDER_RESPONSE.id)
-
     await orderDetailsPage.checkVisibility(true)
   })
 
-  test('Mocked order search - not found', async ({ page }) => {
-    const loginPage = new LoginPage(page)
-    await loginPage.open()
-
-    await page.route(`**${ENDPOINTS.STUDENTS}`, async (route) => {
-      await route.fulfill({ body: fakeJwt() })
+  test('Mocked order search - found (DELIVERED)', async ({ page }) => {
+    await page.route(`**${ENDPOINTS.ORDER_BY_ID}`, async (route) => {
+      if (route.request().method() === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(TEST_DATA.GET_ORDER_DELIVERED_RESPONSE),
+        })
+      } else {
+        await route.continue()
+      }
     })
 
-    const orderPage = await loginPage.signIn(USERNAME, PASSWORD)
+    const orderDetailsPage = await orderPage.checkOrderFound(
+      TEST_DATA.GET_ORDER_DELIVERED_RESPONSE.id,
+    )
+    await orderDetailsPage.checkVisibility(true)
+  })
 
-    await page.route(`**${ENDPOINTS.ORDERS}/*`, async (route) => {
-      await route.fulfill({
-        status: 200,
-      })
+  test('Mocked order search - not found (404)', async ({ page }) => {
+    await page.route(`**${ENDPOINTS.ORDER_BY_ID}`, async (route) => {
+      if (route.request().method() === 'GET') {
+        await route.fulfill({
+          status: 404,
+          contentType: 'application/json',
+          body: JSON.stringify({ message: 'Order not found' }),
+        })
+      } else {
+        await route.continue()
+      }
     })
 
     const orderNotFoundPage = await orderPage.checkOrderNotFound()
     await orderNotFoundPage.checkVisibility(true)
   })
 
-  test('Mocked server error', async ({ page }) => {
-    const loginPage = new LoginPage(page)
-    await loginPage.open()
-
-    await page.route(`**${ENDPOINTS.STUDENTS}`, async (route) => {
-      await route.fulfill({ body: fakeJwt() })
-    })
-
-    const orderPage = await loginPage.signIn(USERNAME, PASSWORD)
-
-    await page.route(`**${ENDPOINTS.ORDERS}/*`, async (route) => {
-      await route.fulfill({
-        status: 500,
-      })
+  test('Mocked server error (500)', async ({ page }) => {
+    await page.route(`**${ENDPOINTS.ORDER_BY_ID}`, async (route) => {
+      if (route.request().method() === 'GET') {
+        await route.fulfill({
+          status: 500,
+          contentType: 'application/json',
+          body: JSON.stringify({ error: 'Internal Server Error' }),
+        })
+      } else {
+        await route.continue()
+      }
     })
 
     const orderNotFoundPage = await orderPage.checkOrderNotFound()
